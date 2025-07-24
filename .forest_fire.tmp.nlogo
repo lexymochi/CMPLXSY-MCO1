@@ -82,7 +82,7 @@ to setup-aircraft
 end
 
 
-; --- Main Simulation Loop ---
+; --- Main Simulation Loop  ---
 
 to go
   if not any? fire-agents and not any? embers [ stop ]

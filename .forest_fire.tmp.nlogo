@@ -61,8 +61,7 @@ to setup-patches
 end
 
 to setup-fire
-  ; --- This check prevents the model from crashing if the chooser is empty ---
-  if initial-fire-locations != "" [
+  if is-list? initial-fire-locations [
     ask patches at-points initial-fire-locations [
       if fuel-type = "tree" or fuel-type = "grass" [
         ignite
@@ -82,7 +81,7 @@ to setup-aircraft
 end
 
 
-; --- Main Simulation Loop  ---
+; --- Main Simulation Loop ---
 
 to go
   if not any? fire-agents and not any? embers [ stop ]
@@ -98,7 +97,7 @@ end
 ; --- Fire Behavior ---
 
 to spread-flame  ; fire-agent procedure
-  ask neighbors [
+  ask  [
     try-to-ignite myself
   ]
   set breed embers
@@ -142,6 +141,7 @@ to hunt-fire  ; Aircraft procedure
   let target-fire min-one-of patches with [is-burning?] [distance myself]
   if target-fire != nobody [
     face target-fire
+    avoid-collisions  ; Check for other planes before moving
     fd 1
     drop-water
   ]
@@ -151,8 +151,17 @@ to seek-lake  ; Aircraft procedure
   let target-lake min-one-of patches with [fuel-type = "lake"] [distance myself]
   if target-lake != nobody [
     face target-lake
+    avoid-collisions  ; Check for other planes before moving
     fd 1
     if patch-here = target-lake [ refill-water ]
+  ]
+end
+
+to avoid-collisions  ; New procedure for aircraft
+  ; If there are any other aircraft within a 3-patch radius...
+  if any? other aircraft in-radius 3 [
+    ; ...then turn a random amount (between -45 and 45 degrees) to find a clear path.
+    rt (random 90) - 45
   ]
 end
 
@@ -438,7 +447,7 @@ probability-of-spread
 probability-of-spread
 0
 1
-1.0
+0.8
 0.01
 1
 NIL
@@ -452,7 +461,7 @@ CHOOSER
 initial-fire-locations
 initial-fire-locations
 [[-16 0]] [[0 0]] [[16 0]]
-1
+2
 
 PLOT
 888

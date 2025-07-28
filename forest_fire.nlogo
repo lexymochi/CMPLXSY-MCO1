@@ -37,30 +37,36 @@ to setup
 end
 
 to setup-patches
+  let world-area count patches
+  let lake-area world-area * lake-density / 100
+  let lake-radius sqrt (lake-area / pi)
+  let lake-center one-of patches  ; Random patch as center of the lake
+
   ask patches [
     set is-burning? false
     set burn-timer 0
     set wet-timer 0
 
-    if random-float 100 < lake-density [
+    ifelse distance lake-center <= lake-radius [
       set fuel-type "lake"
       set flammability 0
-      stop
+    ] [
+      ifelse random-float 100 < grass-density [
+        set fuel-type "grass"
+        set flammability 80
+      ] [
+        set fuel-type "tree"
+        set flammability 40
+      ]
     ]
-    if random-float 100 < grass-density [
-      set fuel-type "grass"
-      set flammability 80
-      stop
-    ]
-    set fuel-type "tree"
-    set flammability 40
   ]
 
   set initial-combustible-patches count patches with [fuel-type = "tree" or fuel-type = "grass"]
   set burned-patches 0
 end
 
-to setup-fire
+
+to setup-fire ; can make this more dynamic in terms of number of spots it spawns in or how many initial fire locations
   if is-list? initial-fire-locations [
     ask patches at-points initial-fire-locations [
       if fuel-type = "tree" or fuel-type = "grass" [
@@ -309,7 +315,7 @@ lake-density
 lake-density
 0
 100
-50.0
+30.0
 1
 1
 NIL
@@ -324,7 +330,7 @@ grass-density
 grass-density
 0
 100
-49.0
+60.0
 1
 1
 NIL
@@ -339,7 +345,7 @@ number-of-planes
 number-of-planes
 0
 20
-20.0
+5.0
 1
 1
 NIL
@@ -354,7 +360,7 @@ wind-speed
 wind-speed
 0
 10
-10.0
+2.0
 1
 1
 NIL
@@ -369,7 +375,7 @@ wind-direction
 wind-direction
 0
 360
-234.0
+167.0
 1
 1
 NIL
@@ -432,7 +438,7 @@ time-to-dry
 time-to-dry
 10
 100
-73.0
+50.0
 1
 1
 NIL
@@ -447,7 +453,7 @@ probability-of-spread
 probability-of-spread
 0
 1
-0.64
+0.25
 0.01
 1
 NIL
@@ -491,11 +497,21 @@ max-water-capacity
 max-water-capacity
 10
 200
-50.0
+20.0
 10
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+376
+5
+606
+59
+FOREST FIRE WITH FIREFIGHTING PLANES
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?

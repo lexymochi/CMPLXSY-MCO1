@@ -190,32 +190,42 @@ to move-and-act  ; Aircraft procedure
 end
 
 to hunt-fire
-  ;; If no target or target burned out, pick a new one
+  ;; If we don't have a target, or it's burned out, get a new one
   if my-target = nobody or not [is-burning?] of my-target [
     if any? patches with [is-burning?] [
-      set my-target one-of patches with [is-burning?]
+      set my-target min-one-of patches with [is-burning?] [distance myself]
+      set run-heading towards my-target
     ]
   ]
 
-  ;; If we still have a target, move toward it
-  if my-target != nobody and [is-burning?] of my-target [
-    let turn-angle subtract-headings (towards my-target) heading
-    set heading heading + limit-turn turn-angle 5  ;; 5° max per tick
+  ;; If we have a target, start/continue a bombing run
+  if my-target != nobody [
+    let turn-angle subtract-headings run-heading heading
+    set heading heading + limit-turn turn-angle 4  ;; smooth turning
 
-    ;; Check for edge
+    ;; Edge avoidance before moving
     if patch-ahead 3 = nobody [
-      ;; Turn inward before hitting the edge
       rt 20
     ]
-
-    fd 2
     avoid-collisions
 
-    ;; Drop water if directly over burning patches
+    fd 2
+
+    ;; Drop water if over burning patches
     if any? patches in-radius 1 with [is-burning?] [
       drop-water
-      ; set my-target nobody ;; retarget after pass
     ]
+
+    ;; If we've passed the target, clear it for a new run
+    if distance my-target > 3 and not [is-burning?] of my-target [
+      set my-target nobody
+    ]
+  ]
+end
+
+to avoid-edge
+  if patch-ahead 3 = nobody [
+    rt 30
   ]
 end
 

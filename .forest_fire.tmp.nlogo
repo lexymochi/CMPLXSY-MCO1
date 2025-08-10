@@ -19,12 +19,8 @@ aircraft-own [
   water-load
   state
   my-target
-  cooldown         ;; ticks before retargeting
-  run-heading      ;; heading for current bombing pass
+  run-heading
 ]
-
-;; Slider in Interface tab:
-;; initial-fire-count: min 1, max maybe 50, default 3, step 1
 
 ; --- Setup Procedures ---
 
@@ -92,7 +88,9 @@ end
 ; --- Main Simulation Loop ---
 
 to go
-  if not any? patches with [is-burning?] [ stop ]
+  if not any? patches with [is-burning?] and not any? patches with [wet-timer > 0] [
+    stop
+  ]
   ask aircraft [ move-and-act ]
   spread-fire
   update-burning-patches
@@ -104,44 +102,15 @@ end
 
 ; --- Fire Behavior ---
 
-to spread-fire
-  ask patches with [is-burning?] [
-    ask neighbors4 with [
-      not is-burning? and
-      wet-timer = 0 and
-      (fuel-type = "tree" or fuel-type = "grass")
-    ] [
-      let base-probability probability-of-spread * (flammability / 100)
-      let fire-direction towards myself
-      let wind-bonus calculate-wind-bonus fire-direction
-      let total-probability base-probability + wind-bonus
-
-      if random-float 100 < total-probability [
-        ignite
-      ]
-    ]
-  ]
-end
 
 
-to try-to-ignite [source-fire] ; Patch procedure
-  if not is-burning? and wet-timer = 0 and (fuel-type = "tree" or fuel-type = "grass") [
-    if random-float 100 < (flammability * probability-of-spread + calculate-wind-bonus (towards source-fire)) [
-      ignite
-    ]
-  ]
-end
+
 
 to ignite  ; Patch procedure
   set is-burning? true
   set burn-timer 0
   set burned-patches burned-patches + 1
 end
-
-to-report calculate-wind-bonus [fire-direction]
-  report (wind-speed * (1 + cos (wind-direction - fire-direction)) / 2)
-end
-
 
 ; --- Firefighter Plane Behavior ---
 
@@ -157,7 +126,35 @@ to move-and-act  ; Aircraft procedure
   ]
 end
 
+to hunt-fire
+  ;; If no target or target burned out, pick a new one
+  if my-target = nobody or not [is-burning?] of my-target [
+    if any? patches with [is-burning?] [
+      set my-target one-of patches with [is-burning?]
+    ]
+  ]
 
+  ;; If we still have a target, move toward it
+  if my-target != nobody and [is-burning?] of my-target [
+    let turn-angle subtract-headings (towards my-target) heading
+    set heading heading + limit-turn turn-angle 5  ;; 5° max per tick
+
+    ;; Check for edge
+    if patch-ahead 3 = nobody [
+      ;; Turn inward before hitting the edge
+      rt 20
+    ]
+
+    fd 2
+    avoid-collisions
+
+    ;; Drop water if directly over burning patches
+    if any? patches in-radius 1 with [is-burning?] [
+      drop-water
+      ; set my-target nobody ;; retarget after pass
+    ]
+  ]
+end
 
 to-report limit-turn [angle max-turn]
   if angle > max-turn [
@@ -254,7 +251,7 @@ end
 to update-visuals
   ask patches [
     if fuel-type = "lake" [
-      set pcolor blue
+      set pcolor 104 ; dark-blue
     ]
     if fuel-type = "tree" [
       set pcolor green
@@ -263,13 +260,13 @@ to update-visuals
       set pcolor lime
     ]
     if fuel-type = "ash" [
-      set pcolor gray
+      set pcolor red - 3.5
     ]
     if is-burning? [
       set pcolor red
     ]
     if wet-timer > 0 and not is-burning? [
-      set pcolor brown
+      set pcolor blue ; light-blue
     ]
   ]
 
@@ -365,7 +362,7 @@ grass-density
 grass-density
 0
 100
-30.0
+20.0
 1
 1
 NIL
@@ -387,45 +384,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-23
-234
-195
-267
-wind-speed
-wind-speed
-0
-10
-8.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-22
-281
-194
-314
-wind-direction
-wind-direction
-0
-360
-360.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-22
-327
-194
-360
+24
+237
+196
+270
 time-to-ash
 time-to-ash
 5
 50
-25.0
+15.0
 1
 1
 NIL
@@ -466,32 +433,32 @@ ticks
 
 SLIDER
 22
-375
+284
 194
-408
+317
 time-to-dry
 time-to-dry
 10
 100
-80.0
+70.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-21
-422
-193
-455
+444
+547
+646
+581
 probability-of-spread
 probability-of-spread
 0
+100
+41.0
 1
-0.55
-0.01
 1
-NIL
+%
 HORIZONTAL
 
 PLOT
@@ -514,15 +481,15 @@ PENS
 "Total Ash" 1.0 0 -7500403 true "" "plot count patches with [fuel-type = \"ash\"]"
 
 SLIDER
-20
-470
-192
-503
+22
+339
+194
+372
 max-water-capacity
 max-water-capacity
 10
 200
-60.0
+200.0
 10
 1
 NIL
@@ -548,6 +515,36 @@ initial-fire-count
 1
 5
 2.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+254
+547
+427
+581
+south-wind-speed
+south-wind-speed
+-25
+25
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+253
+597
+426
+631
+west-wind-speed
+west-wind-speed
+-25
+25
+0.0
 1
 1
 NIL

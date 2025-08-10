@@ -7,6 +7,10 @@ globals [
   prev-burning
   total-fire-speed
   avg-fire-speed
+  total-water-dropped
+  total-drops-made
+  extinguished-fires
+  wet-patches-count
 ]
 
 breed [aircraft plane]
@@ -190,32 +194,42 @@ to move-and-act  ; Aircraft procedure
 end
 
 to hunt-fire
-  ;; If no target or target burned out, pick a new one
+  ;; If we don't have a target, or it's burned out, get a new one
   if my-target = nobody or not [is-burning?] of my-target [
     if any? patches with [is-burning?] [
-      set my-target one-of patches with [is-burning?]
+      set my-target min-one-of patches with [is-burning?] [distance myself]
+      set run-heading towards my-target
     ]
   ]
 
-  ;; If we still have a target, move toward it
-  if my-target != nobody and [is-burning?] of my-target [
-    let turn-angle subtract-headings (towards my-target) heading
-    set heading heading + limit-turn turn-angle 5  ;; 5° max per tick
+  ;; If we have a target, start/continue a bombing run
+  if my-target != nobody [
+    let turn-angle subtract-headings run-heading heading
+    set heading heading + limit-turn turn-angle 4  ;; smooth turning
 
-    ;; Check for edge
+    ;; Edge avoidance before moving
     if patch-ahead 3 = nobody [
-      ;; Turn inward before hitting the edge
       rt 20
     ]
-
-    fd 2
     avoid-collisions
 
-    ;; Drop water if directly over burning patches
+    fd 2
+
+    ;; Drop water if over burning patches
     if any? patches in-radius 1 with [is-burning?] [
       drop-water
-      ; set my-target nobody ;; retarget after pass
     ]
+
+    ;; If we've passed the target, clear it for a new run
+    if distance my-target > 3 and not [is-burning?] of my-target [
+      set my-target nobody
+    ]
+  ]
+end
+
+to avoid-edge
+  if patch-ahead 3 = nobody [
+    rt 30
   ]
 end
 
@@ -241,17 +255,21 @@ end
 
 to avoid-collisions  ; New procedure for aircraft
   ; If there are any other aircraft within a 3-patch radius...
-  if any? other aircraft in-radius 3 [
+  if any? other aircraft in-radius 5 [
     ; ...then turn a random amount (between -45 and 45 degrees) to find a clear path.
     rt (random 90) - 45
   ]
 end
 
 to drop-water  ; Aircraft procedure
+  ;; Track water usage
+  set total-drops-made total-drops-made + 1
+  set total-water-dropped total-water-dropped + 1  ;; Each call = 1 water unit
+
   ;; Douse patch under the plane
   ask patch-here [ douse ]
 
-  let drop-length 5     ;; how far back the spray reaches (patches)
+  let drop-length 10     ;; how far back the spray reaches (patches)
   let max-radius 3      ;; maximum half-width of the spray at the far end
 
   let dist 1
@@ -276,11 +294,14 @@ end
 to douse
   if is-burning? [
     set is-burning? false
+    set extinguished-fires extinguished-fires + 1
   ]
-  set wet-timer time-to-dry
-
-  ask patches in-radius 4 with [is-burning?] [
-    set slow-timer 5
+  ;; only wet flammable patches (tree or grass)
+  if fuel-type = "tree" or fuel-type = "grass" [
+    if wet-timer = 0 [
+      set wet-patches-count wet-patches-count + 1
+    ]
+    set wet-timer time-to-dry
   ]
 end
 
@@ -455,7 +476,7 @@ number-of-planes
 number-of-planes
 0
 5
-3.0
+5.0
 1
 1
 NIL
@@ -470,7 +491,7 @@ time-to-ash
 time-to-ash
 5
 50
-15.0
+20.0
 1
 1
 NIL
@@ -518,7 +539,7 @@ time-to-dry
 time-to-dry
 10
 100
-70.0
+60.0
 1
 1
 NIL
@@ -533,7 +554,7 @@ probability-of-spread
 probability-of-spread
 0
 100
-30.0
+20.0
 1
 1
 %
@@ -649,6 +670,35 @@ fire-speed
 3
 1
 11
+
+MONITOR
+769
+379
+896
+425
+total-water-dropped
+total-water-dropped
+2
+1
+11
+
+PLOT
+935
+458
+1136
+609
+plot 1
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot count turtles"
 
 @#$#@#$#@
 ## WHAT IS IT?

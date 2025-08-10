@@ -7,6 +7,10 @@ globals [
   prev-burning
   total-fire-speed
   avg-fire-speed
+  total-water-dropped
+  total-drops-made
+  extinguished-fires
+  wet-patches-count
 ]
 
 breed [aircraft plane]
@@ -251,17 +255,21 @@ end
 
 to avoid-collisions  ; New procedure for aircraft
   ; If there are any other aircraft within a 3-patch radius...
-  if any? other aircraft in-radius 3 [
+  if any? other aircraft in-radius 5 [
     ; ...then turn a random amount (between -45 and 45 degrees) to find a clear path.
     rt (random 90) - 45
   ]
 end
 
 to drop-water  ; Aircraft procedure
+  ;; Track water usage
+  set total-drops-made total-drops-made + 1
+  set total-water-dropped total-water-dropped + 1  ;; Each call = 1 water unit
+
   ;; Douse patch under the plane
   ask patch-here [ douse ]
 
-  let drop-length 5     ;; how far back the spray reaches (patches)
+  let drop-length 10     ;; how far back the spray reaches (patches)
   let max-radius 3      ;; maximum half-width of the spray at the far end
 
   let dist 1
@@ -286,11 +294,14 @@ end
 to douse
   if is-burning? [
     set is-burning? false
+    set extinguished-fires extinguished-fires + 1
   ]
-  set wet-timer time-to-dry
-
-  ask patches in-radius 4 with [is-burning?] [
-    set slow-timer 5
+  ;; only wet flammable patches (tree or grass)
+  if fuel-type = "tree" or fuel-type = "grass" [
+    if wet-timer = 0 [
+      set wet-patches-count wet-patches-count + 1
+    ]
+    set wet-timer time-to-dry
   ]
 end
 
@@ -465,7 +476,7 @@ number-of-planes
 number-of-planes
 0
 5
-3.0
+5.0
 1
 1
 NIL
@@ -480,7 +491,7 @@ time-to-ash
 time-to-ash
 5
 50
-15.0
+20.0
 1
 1
 NIL
@@ -528,7 +539,7 @@ time-to-dry
 time-to-dry
 10
 100
-70.0
+60.0
 1
 1
 NIL
@@ -543,7 +554,7 @@ probability-of-spread
 probability-of-spread
 0
 100
-30.0
+20.0
 1
 1
 %
@@ -657,6 +668,17 @@ MONITOR
 Fire Spread Speed (patches/tick)
 fire-speed
 3
+1
+11
+
+MONITOR
+769
+379
+896
+425
+total-water-dropped
+total-water-dropped
+2
 1
 11
 

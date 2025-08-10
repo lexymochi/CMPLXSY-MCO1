@@ -22,6 +22,7 @@ patches-own [
   burn-timer
   wet-timer
   slow-timer        ;; reduces spread speed for a few ticks
+  cooldown-timer    ;; prevents ignition for a few ticks after drying
 ]
 
 aircraft-own [
@@ -71,17 +72,35 @@ to setup-patches
   set burned-patches 0
 end
 
-
 to setup-fire
-  ;; Randomly pick initial-fire-count flammable patches to ignite
+  ;; reset fire stats
   set total-fire-speed 0
   set avg-fire-speed 0
   set fire-speed 0
-  set prev-burning count patches with [pcolor = red]
-  ask n-of initial-fire-count patches with [
-    fuel-type = "tree" or fuel-type = "grass"
-  ] [
-    ignite
+  set prev-burning 0
+
+  if start-direction = "north" [
+    ask patches with [pycor = max-pycor and (fuel-type = "tree" or fuel-type = "grass")] [
+      ignite
+    ]
+  ]
+
+  if start-direction = "south" [
+    ask patches with [pycor = min-pycor and (fuel-type = "tree" or fuel-type = "grass")] [
+      ignite
+    ]
+  ]
+
+  if start-direction = "west" [
+    ask patches with [pxcor = min-pxcor and (fuel-type = "tree" or fuel-type = "grass")] [
+      ignite
+    ]
+  ]
+
+  if start-direction = "east" [
+    ask patches with [pxcor = max-pxcor and (fuel-type = "tree" or fuel-type = "grass")] [
+      ignite
+    ]
   ]
 end
 
@@ -108,6 +127,9 @@ to go
   spread-fire
   update-burning-patches
   dry-out-patches
+  dry-out-patches
+  update-cooldowns
+
   update-visuals
   ask patches with [slow-timer > 0] [
     set slow-timer slow-timer - 1
@@ -127,6 +149,7 @@ to spread-fire
     ask neighbors4 with [
       not is-burning? and
       wet-timer = 0 and
+      cooldown-timer = 0 and
       (fuel-type = "tree" or fuel-type = "grass")
     ] [
       ;; base probability from slider
@@ -172,7 +195,6 @@ to spread-fire
   ]
 end
 
-
 to ignite  ; Patch procedure
   set is-burning? true
   set burn-timer 0
@@ -205,7 +227,7 @@ to hunt-fire
   ;; If we have a target, start/continue a bombing run
   if my-target != nobody [
     let turn-angle subtract-headings run-heading heading
-    set heading heading + limit-turn turn-angle 4  ;; smooth turning
+    set heading heading + limit-turn turn-angle 8  ;; smooth turning
 
     ;; Edge avoidance before moving
     if patch-ahead 3 = nobody [
@@ -216,12 +238,12 @@ to hunt-fire
     fd 2
 
     ;; Drop water if over burning patches
-    if any? patches in-radius 1 with [is-burning?] [
+    if any? patches in-radius 5 with [is-burning?] [
       drop-water
     ]
 
     ;; If we've passed the target, clear it for a new run
-    if distance my-target > 3 and not [is-burning?] of my-target [
+    if distance my-target > 1[; and not [is-burning?] of my-target [
       set my-target nobody
     ]
   ]
@@ -255,31 +277,23 @@ end
 
 to avoid-collisions  ; New procedure for aircraft
   ; If there are any other aircraft within a 3-patch radius...
-  if any? other aircraft in-radius 5 [
+  if any? other aircraft in-radius 3 [
     ; ...then turn a random amount (between -45 and 45 degrees) to find a clear path.
     rt (random 90) - 45
   ]
 end
 
-to drop-water  ; Aircraft procedure
-  ;; Track water usage
-  set total-drops-made total-drops-made + 1
-  set total-water-dropped total-water-dropped + 1  ;; Each call = 1 water unit
+to drop-water
+  let drop-length 5
+  let max-radius 3
 
-  ;; Douse patch under the plane
-  ask patch-here [ douse ]
-
-  let drop-length 10     ;; how far back the spray reaches (patches)
-  let max-radius 3      ;; maximum half-width of the spray at the far end
-
-  let dist 1
-  while [ dist <= drop-length ] [
-    let center patch-at-heading-and-distance (heading - 180) dist
+  let dist 0
+  while [dist <= drop-length] [
+    let center patch-at-heading-and-distance (heading + 180) dist
     if center != nobody [
-      ;; radius grows with distance to create a cone
       let radius (max-radius * dist) / drop-length
       ask center [
-        ask patches in-radius radius [
+        ask patches in-radius radius with [fuel-type != "ash"] [
           douse
         ]
       ]
@@ -287,17 +301,21 @@ to drop-water  ; Aircraft procedure
     set dist dist + 1
   ]
 
-  ;; consume water
-  set water-load water-load - 1
+  ;; Track water usage
+  let water-used 1
+  set total-water-dropped total-water-dropped + water-used
+  set water-load water-load - water-used
 end
 
 to douse
+  ;; Extinguish if burning
   if is-burning? [
     set is-burning? false
     set extinguished-fires extinguished-fires + 1
   ]
-  ;; only wet flammable patches (tree or grass)
-  if fuel-type = "tree" or fuel-type = "grass" [
+
+  ;; Wet all flammable patches except ash
+  if fuel-type != "ash" and fuel-type != "lake" [
     if wet-timer = 0 [
       set wet-patches-count wet-patches-count + 1
     ]
@@ -305,11 +323,11 @@ to douse
   ]
 end
 
+
 to refill-water  ; Aircraft procedure
   set water-load max-water-capacity
   set state "active"
 end
-
 
 ; --- Environmental and State Changes ---
 
@@ -341,9 +359,17 @@ end
 to dry-out-patches
   ask patches with [wet-timer > 0] [
     set wet-timer wet-timer - 1
+    if wet-timer = 0 [
+      set cooldown-timer 30   ;; 30-ticks before it can catch fire again
+    ]
   ]
 end
 
+to update-cooldowns
+  ask patches with [cooldown-timer > 0] [
+    set cooldown-timer cooldown-timer - 1
+  ]
+end
 
 ; --- Visualization ---
 
@@ -403,11 +429,22 @@ GRAPHICS-WINDOW
 ticks
 30.0
 
+MONITOR
+0
+0
+0
+0
+NIL
+NIL
+17
+1
+11
+
 BUTTON
-113
-36
-182
-72
+116
+37
+185
+73
 go
 go
 T
@@ -445,8 +482,8 @@ SLIDER
 lake-density
 lake-density
 0
-100
-15.0
+80
+20.0
 1
 1
 NIL
@@ -461,22 +498,22 @@ grass-density
 grass-density
 0
 100
-20.0
+30.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-186
-196
-219
+25
+187
+197
+220
 number-of-planes
 number-of-planes
 0
 5
-5.0
+3.0
 1
 1
 NIL
@@ -491,7 +528,7 @@ time-to-ash
 time-to-ash
 5
 50
-20.0
+25.0
 1
 1
 NIL
@@ -539,22 +576,22 @@ time-to-dry
 time-to-dry
 10
 100
-60.0
+100.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-444
-547
-646
-580
+439
+575
+641
+608
 probability-of-spread
 probability-of-spread
 0
-100
-20.0
+50
+15.0
 1
 1
 %
@@ -605,21 +642,6 @@ FOREST FIRE WITH FIREFIGHTING PLANES
 1
 
 SLIDER
-970
-325
-1143
-358
-initial-fire-count
-initial-fire-count
-1
-5
-2.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
 254
 547
 427
@@ -635,10 +657,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-253
-597
-426
-630
+255
+595
+428
+628
 west-wind-speed
 west-wind-speed
 -25
@@ -672,10 +694,10 @@ fire-speed
 11
 
 MONITOR
-769
-379
-896
-425
+768
+373
+895
+418
 total-water-dropped
 total-water-dropped
 2
@@ -683,13 +705,13 @@ total-water-dropped
 11
 
 PLOT
-935
-458
-1136
-609
-plot 1
-NIL
-NIL
+1180
+43
+1417
+242
+Total Water Dropped
+ticks
+water dropped
 0.0
 10.0
 0.0
@@ -698,7 +720,18 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot count turtles"
+"default" 1.0 0 -16777216 true "" "plot total-water-dropped"
+"pen-1" 1.0 0 -7500403 true "" "plot ticks"
+
+CHOOSER
+655
+569
+794
+614
+start-direction
+start-direction
+"north" "south" "east" "west"
+3
 
 @#$#@#$#@
 ## WHAT IS IT?

@@ -5,11 +5,7 @@ globals [
   burned-patches
 ]
 
-breed [fire-agents fire-agent]
-breed [embers ember]
 breed [aircraft plane]
-
-; --- Agent and Patch Variables ---
 
 patches-own [
   fuel-type
@@ -22,8 +18,13 @@ patches-own [
 aircraft-own [
   water-load
   state
+  my-target
+  cooldown         ;; ticks before retargeting
+  run-heading      ;; heading for current bombing pass
 ]
 
+;; Slider in Interface tab:
+;; initial-fire-count: min 1, max maybe 50, default 3, step 1
 
 ; --- Setup Procedures ---
 
@@ -66,23 +67,24 @@ to setup-patches
 end
 
 
-to setup-fire ; can make this more dynamic in terms of number of spots it spawns in or how many initial fire locations
-  if is-list? initial-fire-locations [
-    ask patches at-points initial-fire-locations [
-      if fuel-type = "tree" or fuel-type = "grass" [
-        ignite
-      ]
-    ]
+to setup-fire
+  ;; Randomly pick initial-fire-count flammable patches to ignite
+  ask n-of initial-fire-count patches with [
+    fuel-type = "tree" or fuel-type = "grass"
+  ] [
+    ignite
   ]
 end
 
 to setup-aircraft
   create-aircraft number-of-planes [
     set shape "airplane 2"
-    set size 10
+    set size 15
     setxy random-pxcor random-pycor
     set state "active"
     set water-load max-water-capacity
+    set my-target nobody
+    set run-heading heading
   ]
 end
 
@@ -90,9 +92,9 @@ end
 ; --- Main Simulation Loop ---
 
 to go
-  if not any? fire-agents and not any? embers [ stop ]
+  if not any? patches with [is-burning?] [ stop ]
   ask aircraft [ move-and-act ]
-  ask fire-agents [ spread-flame ]
+  spread-fire
   update-burning-patches
   dry-out-patches
   update-visuals
@@ -102,12 +104,25 @@ end
 
 ; --- Fire Behavior ---
 
-to spread-flame  ; fire-agent procedure
-  ask patches in-radius 2 [
-    try-to-ignite myself
+to spread-fire
+  ask patches with [is-burning?] [
+    ask neighbors4 with [
+      not is-burning? and
+      wet-timer = 0 and
+      (fuel-type = "tree" or fuel-type = "grass")
+    ] [
+      let base-probability probability-of-spread * (flammability / 100)
+      let fire-direction towards myself
+      let wind-bonus calculate-wind-bonus fire-direction
+      let total-probability base-probability + wind-bonus
+
+      if random-float 100 < total-probability [
+        ignite
+      ]
+    ]
   ]
-  set breed embers
 end
+
 
 to try-to-ignite [source-fire] ; Patch procedure
   if not is-burning? and wet-timer = 0 and (fuel-type = "tree" or fuel-type = "grass") [
@@ -120,7 +135,6 @@ end
 to ignite  ; Patch procedure
   set is-burning? true
   set burn-timer 0
-  sprout-fire-agents 1 [ set color red ]
   set burned-patches burned-patches + 1
 end
 
@@ -143,14 +157,44 @@ to move-and-act  ; Aircraft procedure
   ]
 end
 
-to hunt-fire  ; Aircraft procedure
-  let target-fire min-one-of patches with [is-burning?] [distance myself]
-  if target-fire != nobody [
-    face target-fire
-    avoid-collisions  ; Check for other planes before moving
-    fd 1
-    drop-water
+to hunt-fire
+  ;; If no target or target burned out, pick a new one
+  if my-target = nobody or not [is-burning?] of my-target [
+    if any? patches with [is-burning?] [
+      set my-target one-of patches with [is-burning?]
+    ]
   ]
+
+  ;; If we still have a target, move toward it
+  if my-target != nobody and [is-burning?] of my-target [
+    let turn-angle subtract-headings (towards my-target) heading
+    set heading heading + limit-turn turn-angle 5  ;; 5° max per tick
+
+    ;; Check for edge
+    if patch-ahead 3 = nobody [
+      ;; Turn inward before hitting the edge
+      rt 20
+    ]
+
+    fd 2
+    avoid-collisions
+
+    ;; Drop water if directly over burning patches
+    if any? patches in-radius 1 with [is-burning?] [
+      drop-water
+      set my-target nobody ;; retarget after pass
+    ]
+  ]
+end
+
+to-report limit-turn [angle max-turn]
+  if angle > max-turn [
+    report max-turn
+  ]
+  if angle < (- max-turn) [
+    report (- max-turn)
+  ]
+  report angle
 end
 
 to seek-lake  ; Aircraft procedure
@@ -172,23 +216,34 @@ to avoid-collisions  ; New procedure for aircraft
 end
 
 to drop-water  ; Aircraft procedure
+  ;; Douse patch under the plane
   ask patch-here [ douse ]
 
-  if patch-at-heading-and-distance (heading - 180) 1 != nobody [
-    ask patch-at-heading-and-distance (heading - 180) 1 [ douse ]
+  let drop-length 5     ;; how far back the spray reaches (patches)
+  let max-radius 3      ;; maximum half-width of the spray at the far end
+
+  let dist 1
+  while [ dist <= drop-length ] [
+    let center patch-at-heading-and-distance (heading - 180) dist
+    if center != nobody [
+      ;; radius grows with distance to create a cone
+      let radius (max-radius * dist) / drop-length
+      ask center [
+        ask patches in-radius radius [
+          douse
+        ]
+      ]
+    ]
+    set dist dist + 1
   ]
 
-  if patch-at-heading-and-distance (heading - 180) 2 != nobody [
-    ask patch-at-heading-and-distance (heading - 180) 2 [ douse ]
-  ]
-
+  ;; consume water
   set water-load water-load - 1
 end
 
-to douse  ; Patch procedure
+to douse
   if is-burning? [
     set is-burning? false
-    ask turtles-here with [breed = fire-agents or breed = embers] [ die ]
   ]
   set wet-timer time-to-dry
 end
@@ -210,9 +265,8 @@ to update-burning-patches
   ]
 end
 
-to become-ash  ; Patch procedure
+to become-ash
   set is-burning? false
-  ask turtles-here with [breed = fire-agents or breed = embers] [ die ]
   set fuel-type "ash"
 end
 
@@ -227,21 +281,30 @@ end
 
 to update-visuals
   ask patches [
-    if fuel-type = "lake" [ set pcolor blue ]
-    if fuel-type = "tree" [ set pcolor green ]
-    if fuel-type = "grass" [ set pcolor lime ]
-    if is-burning? [ set pcolor red ]
-    if wet-timer > 0 [ set pcolor brown ]
-    if fuel-type = "ash" [ set pcolor gray ]
+    if fuel-type = "lake" [
+      set pcolor blue
+    ]
+    if fuel-type = "tree" [
+      set pcolor green
+    ]
+    if fuel-type = "grass" [
+      set pcolor lime
+    ]
+    if fuel-type = "ash" [
+      set pcolor gray
+    ]
+    if is-burning? [
+      set pcolor red
+    ]
+    if wet-timer > 0 and not is-burning? [
+      set pcolor brown
+    ]
   ]
 
   ask aircraft [
-    ifelse state = "active" [ set color black ] [ set color gray + 2 ]
-  ]
-
-  ask embers [
-    set color color - 0.3
-    if color < red - 3.5 [ die ]
+    ifelse state = "active"
+      [ set color black ]
+      [ set color gray + 2 ]
   ]
 end
 @#$#@#$#@
@@ -315,7 +378,7 @@ lake-density
 lake-density
 0
 100
-30.0
+15.0
 1
 1
 NIL
@@ -330,7 +393,7 @@ grass-density
 grass-density
 0
 100
-60.0
+30.0
 1
 1
 NIL
@@ -344,8 +407,8 @@ SLIDER
 number-of-planes
 number-of-planes
 0
-20
-5.0
+5
+3.0
 1
 1
 NIL
@@ -360,7 +423,7 @@ wind-speed
 wind-speed
 0
 10
-2.0
+8.0
 1
 1
 NIL
@@ -375,7 +438,7 @@ wind-direction
 wind-direction
 0
 360
-167.0
+204.0
 1
 1
 NIL
@@ -390,7 +453,7 @@ time-to-ash
 time-to-ash
 5
 50
-16.0
+25.0
 1
 1
 NIL
@@ -438,7 +501,7 @@ time-to-dry
 time-to-dry
 10
 100
-50.0
+80.0
 1
 1
 NIL
@@ -453,21 +516,11 @@ probability-of-spread
 probability-of-spread
 0
 1
-0.25
+0.35
 0.01
 1
 NIL
 HORIZONTAL
-
-CHOOSER
-765
-263
-973
-308
-initial-fire-locations
-initial-fire-locations
-[[-16 0]] [[0 0]] [[16 0]]
-2
 
 PLOT
 888
@@ -497,7 +550,7 @@ max-water-capacity
 max-water-capacity
 10
 200
-20.0
+60.0
 10
 1
 NIL
@@ -512,6 +565,21 @@ FOREST FIRE WITH FIREFIGHTING PLANES
 11
 0.0
 1
+
+SLIDER
+896
+268
+1069
+301
+initial-fire-count
+initial-fire-count
+1
+5
+5.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?

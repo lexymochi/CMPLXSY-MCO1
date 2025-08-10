@@ -3,6 +3,10 @@
 globals [
   initial-combustible-patches
   burned-patches
+  fire-speed
+  prev-burning
+  total-fire-speed
+  avg-fire-speed
 ]
 
 breed [aircraft plane]
@@ -13,6 +17,7 @@ patches-own [
   flammability
   burn-timer
   wet-timer
+  slow-timer        ;; reduces spread speed for a few ticks
 ]
 
 aircraft-own [
@@ -65,6 +70,10 @@ end
 
 to setup-fire
   ;; Randomly pick initial-fire-count flammable patches to ignite
+  set total-fire-speed 0
+  set avg-fire-speed 0
+  set fire-speed 0
+  set prev-burning count patches with [pcolor = red]
   ask n-of initial-fire-count patches with [
     fuel-type = "tree" or fuel-type = "grass"
   ] [
@@ -96,14 +105,68 @@ to go
   update-burning-patches
   dry-out-patches
   update-visuals
+  ask patches with [slow-timer > 0] [
+    set slow-timer slow-timer - 1
+  ]
+  update-rate
+  if ticks > 0 and fire-speed > 0 [
+    update-fire-speed-rate
+  ]
   tick
 end
 
 
 ; --- Fire Behavior ---
 
+to spread-fire
+  ask patches with [is-burning?] [
+    ask neighbors4 with [
+      not is-burning? and
+      wet-timer = 0 and
+      (fuel-type = "tree" or fuel-type = "grass")
+    ] [
+      ;; base probability from slider
+      let probability probability-of-spread
+      if slow-timer > 0 [
+        set probability probability * 0.1
+      ]
+      ;; direction from this neighbor patch (potential target) to the burning patch (myself)
+      let direction towards myself
 
+      ;; Adjust probability based on wind directions
 
+      ;; Assuming wind directions and speeds as sliders:
+      ;; south-wind-speed and west-wind-speed are sliders (values 0-100)
+
+      if direction = 0 [
+        ;; burning patch is north of neighbor
+        ;; south wind impedes fire spreading from north to south neighbor
+        set probability probability - south-wind-speed
+      ]
+      if direction = 90 [
+        ;; burning patch is east of neighbor
+        ;; west wind impedes spreading from east to west neighbor
+        set probability probability - west-wind-speed
+      ]
+      if direction = 180 [
+        ;; burning patch is south of neighbor
+        ;; south wind aids fire spreading from south to north neighbor
+        set probability probability + south-wind-speed
+      ]
+      if direction = 270 [
+        ;; burning patch is west of neighbor
+        ;; west wind aids spreading from west to east neighbor
+        set probability probability + west-wind-speed
+      ]
+
+      set probability probability * (flammability / 100)
+
+      if random 100 < probability [
+        ignite
+      ]
+    ]
+  ]
+end
 
 
 to ignite  ; Patch procedure
@@ -215,6 +278,10 @@ to douse
     set is-burning? false
   ]
   set wet-timer time-to-dry
+
+  ask patches in-radius 4 with [is-burning?] [
+    set slow-timer 5
+  ]
 end
 
 to refill-water  ; Aircraft procedure
@@ -224,6 +291,17 @@ end
 
 
 ; --- Environmental and State Changes ---
+
+to update-rate
+  let current-burning count patches with [pcolor = red]
+  set fire-speed current-burning - prev-burning
+  set prev-burning current-burning
+end
+
+to update-fire-speed-rate
+  set total-fire-speed total-fire-speed + fire-speed
+  set avg-fire-speed total-fire-speed / ticks
+end
 
 to update-burning-patches
   ask patches with [is-burning?] [
@@ -377,7 +455,7 @@ number-of-planes
 number-of-planes
 0
 5
-1.0
+3.0
 1
 1
 NIL
@@ -450,12 +528,12 @@ SLIDER
 444
 547
 646
-581
+580
 probability-of-spread
 probability-of-spread
 0
 100
-41.0
+30.0
 1
 1
 %
@@ -506,10 +584,10 @@ FOREST FIRE WITH FIREFIGHTING PLANES
 1
 
 SLIDER
-896
-268
-1069
-301
+970
+325
+1143
+358
 initial-fire-count
 initial-fire-count
 1
@@ -524,7 +602,7 @@ SLIDER
 254
 547
 427
-581
+580
 south-wind-speed
 south-wind-speed
 -25
@@ -539,7 +617,7 @@ SLIDER
 253
 597
 426
-631
+630
 west-wind-speed
 west-wind-speed
 -25
@@ -549,6 +627,28 @@ west-wind-speed
 1
 NIL
 HORIZONTAL
+
+MONITOR
+767
+313
+932
+358
+Average Fire Spread Speed
+avg-fire-speed
+2
+1
+11
+
+MONITOR
+767
+255
+961
+300
+Fire Spread Speed (patches/tick)
+fire-speed
+3
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

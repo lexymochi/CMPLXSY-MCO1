@@ -108,13 +108,37 @@ to setup-aircraft
   create-aircraft number-of-planes [
     set shape "airplane 2"
     set size 15
-    setxy random-pxcor random-pycor
     set state "active"
     set water-load max-water-capacity
     set my-target nobody
     set run-heading heading
+    set label water-load
+    set label-color blue
+
+    ;; spawn location based on start-direction
+    if start-direction = "north" [
+      ;; fire at north edge → planes at south edge
+      setxy random-pxcor min-pycor
+      set heading 0 ;; face north
+    ]
+    if start-direction = "south" [
+      ;; fire at south edge → planes at north edge
+      setxy random-pxcor max-pycor
+      set heading 180 ;; face south
+    ]
+    if start-direction = "east" [
+      ;; fire at east edge → planes at west edge
+      setxy min-pxcor random-pycor
+      set heading 90 ;; face east
+    ]
+    if start-direction = "west" [
+      ;; fire at west edge → planes at east edge
+      setxy max-pxcor random-pycor
+      set heading 270 ;; face west
+    ]
   ]
 end
+
 
 
 ; --- Main Simulation Loop ---
@@ -213,6 +237,16 @@ to move-and-act  ; Aircraft procedure
   if state = "refilling" [
     seek-lake
   ]
+  ifelse show-plane-water-load [
+    set label water-load
+  ] [
+    set label ""
+  ]
+  ifelse water-load < (max-water-capacity * 0.25) [
+    set label-color red
+  ] [
+    set label-color blue
+  ]
 end
 
 to hunt-fire
@@ -286,14 +320,22 @@ end
 to drop-water
   let drop-length 5
   let max-radius 3
+  let patches-doused 0
+
+  ;; How many patches worth of water are left
+  let remaining-patches floor (water-load / 10)
 
   let dist 0
-  while [dist <= drop-length] [
+  while [dist <= drop-length and patches-doused < remaining-patches] [
     let center patch-at-heading-and-distance (heading + 180) dist
     if center != nobody [
       let radius (max-radius * dist) / drop-length
       ask center [
-        ask patches in-radius radius with [fuel-type != "ash"] [
+        ask patches in-radius radius with [fuel-type != "ash" and patches-doused < remaining-patches] [
+          ;; Only count if not already wet
+          if wet-timer = 0 [
+            set patches-doused patches-doused + 1
+          ]
           douse
         ]
       ]
@@ -301,11 +343,12 @@ to drop-water
     set dist dist + 1
   ]
 
-  ;; Track water usage
-  let water-used 1
-  set total-water-dropped total-water-dropped + water-used
-  set water-load water-load - water-used
+  ;; Final safeguard
+  set patches-doused min (list patches-doused remaining-patches)
+  set total-water-dropped total-water-dropped + (10 * patches-doused)
+  set water-load water-load - (10 * patches-doused)
 end
+
 
 to douse
   ;; Extinguish if burning
@@ -472,7 +515,7 @@ lake-density
 lake-density
 0
 80
-20.0
+10.0
 1
 1
 NIL
@@ -608,23 +651,23 @@ PENS
 SLIDER
 22
 339
-194
+197
 372
 max-water-capacity
 max-water-capacity
-10
-200
-200.0
+10000
+20000
+20000.0
 10
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-376
-5
-606
-59
+377
+6
+607
+60
 FOREST FIRE WITH FIREFIGHTING PLANES
 11
 0.0
@@ -685,11 +728,11 @@ fire-speed
 MONITOR
 768
 373
-895
+912
 418
+total-water-dropped (L)
 total-water-dropped
-total-water-dropped
-2
+0
 1
 11
 
@@ -720,7 +763,7 @@ CHOOSER
 start-direction
 start-direction
 "north" "south" "east" "west"
-3
+0
 
 MONITOR
 769
@@ -732,6 +775,17 @@ burned-patches
 17
 1
 11
+
+SWITCH
+21
+487
+205
+520
+show-plane-water-load
+show-plane-water-load
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?

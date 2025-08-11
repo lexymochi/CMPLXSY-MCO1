@@ -11,6 +11,7 @@ globals [
   total-drops-made
   extinguished-fires
   wet-patches-count
+  zone-patches-list ;; a list of patch agentsets, one per plane
 ]
 
 breed [aircraft plane]
@@ -30,6 +31,7 @@ aircraft-own [
   state
   my-target
   run-heading
+  my-zone-patches  ;; patches assigned to this plane
 ]
 
 ; --- Setup Procedures ---
@@ -39,6 +41,7 @@ to setup
   setup-patches
   setup-fire
   setup-aircraft
+  setup-zones   ;; assign zones to planes here
   update-visuals
   reset-ticks
 end
@@ -47,14 +50,17 @@ to setup-patches
   let world-area count patches
   let lake-area world-area * lake-density / 100
   let lake-radius sqrt (lake-area / pi)
-  let lake-center one-of patches  ; Random patch as center of the lake
+  let lake-center nobody
+  if lake-density > 0 [
+    set lake-center one-of patches  ; Random patch as center of the lake
+  ]
 
   ask patches [
     set is-burning? false
     set burn-timer 0
     set wet-timer 0
 
-    ifelse distance lake-center <= lake-radius [
+    ifelse lake-density > 0 and distance lake-center <= lake-radius [
       set fuel-type "lake"
       set flammability 0
     ] [
@@ -71,6 +77,7 @@ to setup-patches
   set initial-combustible-patches count patches with [fuel-type = "tree" or fuel-type = "grass"]
   set burned-patches 0
 end
+
 
 to setup-fire
   ;; reset fire stats
@@ -137,14 +144,41 @@ to setup-aircraft
       set heading 270 ;; face west
     ]
   ]
-  ifelse show-plane-water-load [
-    set label water-load
-    set label-color blue
-  ] [
-    set label ""
-  ]
 end
 
+to setup-zones
+  if not use-zones? [
+    ;; If zones are disabled, clear zones for all planes
+    ask aircraft [
+      set my-zone-patches patches  ;; assign all patches (or nobody if you want)
+    ]
+    set zone-patches-list []
+    stop
+  ]
+
+  ;; Otherwise, assign zones normally
+  set zone-patches-list []
+  let num-planes count aircraft
+  let x-min min [pxcor] of patches
+  let x-max max [pxcor] of patches
+  let zone-width 0
+  if num-planes != 0 [
+    set zone-width (x-max - x-min + 1) / num-planes
+  ]
+
+  foreach sort aircraft [
+    i ->
+    let idx position i sort aircraft
+    let left-bound x-min + idx * zone-width
+    let right-bound left-bound + zone-width - 1
+    let zone patches with [pxcor >= left-bound and pxcor <= right-bound]
+
+    ask i [
+      set my-zone-patches zone
+    ]
+    set zone-patches-list lput zone zone-patches-list
+  ]
+end
 
 
 ; --- Main Simulation Loop ---
@@ -243,7 +277,7 @@ to move-and-act  ; Aircraft procedure
   if state = "refilling" [
     seek-lake
   ]
-  ifelse show-plane-water [
+  ifelse show-plane-water-load [
     set label water-load
   ] [
     set label ""
@@ -256,15 +290,21 @@ to move-and-act  ; Aircraft procedure
 end
 
 to hunt-fire
-  ;; If we don't have a target, or it's burned out, get a new one
+  ;; If target is invalid or none
   if my-target = nobody or not [is-burning?] of my-target [
-    if any? patches with [is-burning?] [
-      set my-target min-one-of patches with [is-burning?] [distance myself]
+    ifelse (my-zone-patches != nobody and any? my-zone-patches with [is-burning?]) [
+      set my-target min-one-of my-zone-patches with [is-burning?] [distance myself]
       set run-heading towards my-target
+    ] [
+      ifelse any? patches with [is-burning?] [
+        set my-target min-one-of patches with [is-burning?] [distance myself]
+        set run-heading towards my-target
+      ] [
+        set my-target nobody
+      ]
     ]
   ]
-
-  ;; If we have a target, start/continue a bombing run
+   ;; If we have a target, start/continue a bombing run
   if my-target != nobody [
     let turn-angle subtract-headings run-heading heading
     set heading heading + limit-turn turn-angle 8  ;; smooth turning
@@ -283,11 +323,13 @@ to hunt-fire
     ]
 
     ;; If we've passed the target, clear it for a new run
-    if distance my-target > 1[; and not [is-burning?] of my-target [
+    if distance my-target > 1 [ ; and not [is-burning?] of my-target [
       set my-target nobody
     ]
   ]
+  ;; rest of your move/turn/drop-water code unchanged
 end
+
 
 to avoid-edge
   if patch-ahead 3 = nobody [
@@ -454,11 +496,11 @@ end
 GRAPHICS-WINDOW
 224
 21
-734
-532
+707
+504
 -1
 -1
-2.0
+3.2351
 1
 10
 1
@@ -514,24 +556,24 @@ NIL
 
 SLIDER
 25
-94
+147
 197
-127
+180
 lake-density
 lake-density
 0
 80
-10.0
+25.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-139
-196
-172
+25
+192
+197
+225
 grass-density
 grass-density
 0
@@ -543,10 +585,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-25
-187
-197
-220
+8
+310
+181
+344
 number-of-planes
 number-of-planes
 0
@@ -558,10 +600,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-24
-237
-196
-270
+227
+533
+399
+566
 time-to-ash
 time-to-ash
 5
@@ -606,10 +648,10 @@ ticks
 11
 
 SLIDER
-22
-284
-194
-317
+406
+533
+578
+566
 time-to-dry
 time-to-dry
 10
@@ -621,10 +663,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-439
-575
-641
-608
+305
+613
+507
+646
 probability-of-spread
 probability-of-spread
 0
@@ -655,10 +697,10 @@ PENS
 "Total Ash" 1.0 0 -7500403 true "" "plot count patches with [fuel-type = \"ash\"]"
 
 SLIDER
-22
-339
-197
-372
+8
+268
+217
+302
 max-water-capacity
 max-water-capacity
 10000
@@ -666,13 +708,13 @@ max-water-capacity
 20000.0
 10
 1
-NIL
+Litres
 HORIZONTAL
 
 TEXTBOX
-377
+361
 6
-607
+591
 60
 FOREST FIRE WITH FIREFIGHTING PLANES
 11
@@ -680,10 +722,10 @@ FOREST FIRE WITH FIREFIGHTING PLANES
 1
 
 SLIDER
-254
-547
-427
-580
+226
+573
+399
+606
 south-wind-speed
 south-wind-speed
 -25
@@ -695,10 +737,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-255
-595
-428
-628
+406
+573
+579
+606
 west-wind-speed
 west-wind-speed
 -25
@@ -762,10 +804,10 @@ PENS
 "pen-1" 1.0 0 -7500403 true "" "plot ticks"
 
 CHOOSER
-655
-569
-794
-614
+590
+551
+729
+596
 start-direction
 start-direction
 "north" "south" "east" "west"
@@ -783,15 +825,56 @@ burned-patches
 11
 
 SWITCH
-812
-487
-996
-520
+9
+400
+193
+433
 show-plane-water-load
 show-plane-water-load
-1
+0
 1
 -1000
+
+SWITCH
+9
+356
+139
+390
+use-zones?
+use-zones?
+0
+1
+-1000
+
+TEXTBOX
+55
+243
+171
+271
+Plane Variable Controls
+11
+0.0
+1
+
+TEXTBOX
+409
+510
+532
+538
+Fire Spread Controls
+11
+0.0
+1
+
+TEXTBOX
+59
+116
+187
+144
+Environment Control
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?

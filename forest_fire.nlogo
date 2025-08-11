@@ -150,7 +150,7 @@ to setup-zones
   if not use-zones? [
     ;; If zones are disabled, clear zones for all planes
     ask aircraft [
-      set my-zone-patches patches  ;; assign all patches (or nobody if you want)
+      set my-zone-patches patches
     ]
     set zone-patches-list []
     stop
@@ -226,7 +226,6 @@ to spread-fire
 
       ;; Adjust probability based on wind directions
 
-      ;; Assuming wind directions and speeds as sliders:
       ;; south-wind-speed and west-wind-speed are sliders (values 0-100)
 
       if direction = 0 [
@@ -327,7 +326,6 @@ to hunt-fire
       set my-target nobody
     ]
   ]
-  ;; rest of your move/turn/drop-water code unchanged
 end
 
 
@@ -482,7 +480,7 @@ to update-visuals
       set pcolor red
     ]
     if wet-timer > 0 and not is-burning? [
-      set pcolor blue ; light-blue
+      set pcolor blue
     ]
   ]
 
@@ -814,9 +812,9 @@ start-direction
 0
 
 MONITOR
-769
+768
 434
-871
+870
 479
 burned-patches
 burned-patches

@@ -150,7 +150,7 @@ to setup-zones
   if not use-zones? [
     ;; If zones are disabled, clear zones for all planes
     ask aircraft [
-      set my-zone-patches patches  ;; assign all patches (or nobody if you want)
+      set my-zone-patches patches
     ]
     set zone-patches-list []
     stop
@@ -570,9 +570,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-25
+24
 192
-197
+196
 225
 grass-density
 grass-density
@@ -814,9 +814,9 @@ start-direction
 0
 
 MONITOR
-769
+768
 434
-871
+870
 479
 burned-patches
 burned-patches
@@ -867,10 +867,10 @@ Fire Spread Controls
 1
 
 TEXTBOX
-59
-116
-187
-144
+61
+126
+189
+154
 Environment Control
 11
 0.0

@@ -492,13 +492,13 @@ to update-visuals
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-224
-21
-707
-504
+478
+44
+969
+536
 -1
 -1
-3.2351
+1.924303
 1
 10
 1
@@ -519,10 +519,10 @@ ticks
 30.0
 
 BUTTON
-116
-37
-185
-73
+721
+552
+790
+588
 go
 go
 T
@@ -536,10 +536,10 @@ NIL
 0
 
 BUTTON
-33
-36
-103
-72
+636
+551
+706
+587
 setup
 setup
 NIL
@@ -553,25 +553,25 @@ NIL
 1
 
 SLIDER
-25
-147
-197
-180
+163
+83
+373
+116
 lake-density
 lake-density
 0
 80
-25.0
+30.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-24
-192
-196
-225
+162
+128
+373
+161
 grass-density
 grass-density
 0
@@ -583,10 +583,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-8
-310
-181
-344
+164
+259
+374
+292
 number-of-planes
 number-of-planes
 0
@@ -598,10 +598,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-227
-533
-399
-566
+90
+443
+262
+476
 time-to-ash
 time-to-ash
 5
@@ -613,10 +613,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-766
-46
-869
-91
+1233
+218
+1326
+263
 is-burning?
 count patches with [is-burning?]
 17
@@ -624,10 +624,10 @@ count patches with [is-burning?]
 11
 
 MONITOR
-766
-123
-871
-168
+1335
+218
+1427
+263
 count aircraft
 count aircraft
 17
@@ -635,10 +635,10 @@ count aircraft
 11
 
 MONITOR
-768
-191
-874
-236
+1234
+275
+1325
+320
 ticks
 ticks
 17
@@ -646,10 +646,10 @@ ticks
 11
 
 SLIDER
-406
-533
-578
-566
+269
+443
+441
+476
 time-to-dry
 time-to-dry
 10
@@ -661,10 +661,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-305
-613
-507
-646
+90
+525
+262
+558
 probability-of-spread
 probability-of-spread
 0
@@ -676,10 +676,10 @@ probability-of-spread
 HORIZONTAL
 
 PLOT
-888
-42
-1159
-240
+984
+85
+1215
+283
 Fire Spread
 ticks
 NIL
@@ -695,35 +695,35 @@ PENS
 "Total Ash" 1.0 0 -7500403 true "" "plot count patches with [fuel-type = \"ash\"]"
 
 SLIDER
-8
-268
-217
-302
+165
+216
+374
+249
 max-water-capacity
 max-water-capacity
 10000
 20000
-20000.0
+19990.0
 10
 1
 Litres
 HORIZONTAL
 
 TEXTBOX
-361
-6
-591
-60
+615
+13
+832
+31
 FOREST FIRE WITH FIREFIGHTING PLANES
 11
 0.0
 1
 
 SLIDER
-226
-573
-399
-606
+89
+483
+262
+516
 south-wind-speed
 south-wind-speed
 -25
@@ -735,10 +735,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-406
-573
-579
-606
+269
+483
+442
+516
 west-wind-speed
 west-wind-speed
 -25
@@ -750,10 +750,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-767
-313
-932
-358
+1232
+144
+1430
+189
 Average Fire Spread Speed
 avg-fire-speed
 2
@@ -761,10 +761,10 @@ avg-fire-speed
 11
 
 MONITOR
-767
-255
-961
-300
+1233
+84
+1430
+129
 Fire Spread Speed (patches/tick)
 fire-speed
 3
@@ -772,10 +772,10 @@ fire-speed
 11
 
 MONITOR
-768
-373
-912
-418
+1232
+340
+1430
+385
 total-water-dropped (L)
 total-water-dropped
 0
@@ -783,10 +783,10 @@ total-water-dropped
 11
 
 PLOT
-1180
-43
-1417
-242
+983
+338
+1213
+537
 Total Water Dropped
 ticks
 water dropped
@@ -802,20 +802,20 @@ PENS
 "pen-1" 1.0 0 -7500403 true "" "plot ticks"
 
 CHOOSER
-590
-551
-729
-596
+271
+525
+444
+570
 start-direction
 start-direction
 "north" "south" "east" "west"
 0
 
 MONITOR
-768
-434
-870
-479
+1335
+276
+1429
+321
 burned-patches
 burned-patches
 17
@@ -823,21 +823,21 @@ burned-patches
 11
 
 SWITCH
-9
-400
-193
-433
+164
+347
+374
+380
 show-plane-water-load
 show-plane-water-load
-0
+1
 1
 -1000
 
 SWITCH
-9
-356
-139
-390
+164
+303
+374
+336
 use-zones?
 use-zones?
 0
@@ -845,32 +845,52 @@ use-zones?
 -1000
 
 TEXTBOX
-55
-243
-171
-271
+215
+190
+331
+218
 Plane Variable Controls
 11
 0.0
 1
 
 TEXTBOX
-409
-510
-532
-538
+219
+406
+319
+424
 Fire Spread Controls
 11
 0.0
 1
 
 TEXTBOX
-61
-126
-189
-154
+216
+56
+319
+84
 Environment Control
 11
+0.0
+1
+
+TEXTBOX
+668
+598
+758
+616
+Simulation Controls
+10
+0.0
+1
+
+TEXTBOX
+1185
+52
+1273
+70
+Plots and Monitors
+10
 0.0
 1
 
@@ -940,8 +960,26 @@ Incorporate terrain features affecting fire and aircraft movement.
 
 ## NETLOGO FEATURES
 
+Uses agentsets and breeds for patches and aircraft.
+
+Uses custom patch and turtle variables for tracking states like burning, water load, and cooldowns.
+
+Implements probabilistic fire spread using built-in random functions.
+
+Utilizes procedures and conditional logic for aircraft behaviors and fire dynamics.
+
+Demonstrates zone partitioning for assigning firefighting responsibilities to planes.
+
+Uses visualization features like patch coloring and turtle labels to show simulation state.
+
 
 ## RELATED MODELS
+
+Fire spreading models such as Fire Simple from the NetLogo Models Library.
+
+Agent-based models for natural disaster response.
+
+Forest ecology and wildfire management simulation models.
 
 ## CREDITS AND REFERENCES
 

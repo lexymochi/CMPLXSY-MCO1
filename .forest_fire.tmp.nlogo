@@ -12,6 +12,10 @@ globals [
   extinguished-fires
   wet-patches-count
   zone-patches-list ;; a list of patch agentsets, one per plane
+  grass-count
+  tree-count
+  burnt-grass-count
+  burnt-tree-count
 ]
 
 breed [aircraft plane]
@@ -85,6 +89,8 @@ to setup-fire
   set avg-fire-speed 0
   set fire-speed 0
   set prev-burning 0
+  set burnt-tree-count 0
+  set burnt-grass-count 0
 
   if start-direction = "north" [
     ask patches with [pycor = max-pycor and (fuel-type = "tree" or fuel-type = "grass")] [
@@ -193,8 +199,8 @@ to go
   dry-out-patches
   dry-out-patches
   update-cooldowns
-
   update-visuals
+  update-grass-tree-counts
   ask patches with [slow-timer > 0] [
     set slow-timer slow-timer - 1
   ]
@@ -440,7 +446,18 @@ to update-burning-patches
   ]
 end
 
+to update-grass-tree-counts
+  set grass-count count patches with [fuel-type = "grass"]
+  set tree-count count patches with [fuel-type = "tree"]
+end
+
 to become-ash
+  if fuel-type = "tree" [
+    set burnt-tree-count burnt-tree-count + 1
+  ]
+  if fuel-type = "grass" [
+    set burnt-grass-count burnt-grass-count + 1
+  ]
   set is-burning? false
   set fuel-type "ash"
 end
@@ -468,10 +485,10 @@ to update-visuals
       set pcolor 104 ; dark-blue
     ]
     if fuel-type = "tree" [
-      set pcolor green
+      set pcolor 52
     ]
     if fuel-type = "grass" [
-      set pcolor lime
+      set pcolor 56
     ]
     if fuel-type = "ash" [
       set pcolor red - 3.5
@@ -614,9 +631,9 @@ HORIZONTAL
 
 MONITOR
 1233
-218
+205
 1326
-263
+250
 is-burning?
 count patches with [is-burning?]
 17
@@ -625,9 +642,9 @@ count patches with [is-burning?]
 
 MONITOR
 1335
-218
+205
 1427
-263
+250
 count aircraft
 count aircraft
 17
@@ -636,9 +653,9 @@ count aircraft
 
 MONITOR
 1234
-275
+262
 1325
-320
+307
 ticks
 ticks
 17
@@ -772,10 +789,10 @@ fire-speed
 11
 
 MONITOR
-1232
-340
-1430
-385
+1233
+315
+1431
+360
 total-water-dropped (L)
 total-water-dropped
 0
@@ -813,9 +830,9 @@ start-direction
 
 MONITOR
 1335
-276
+263
 1429
-321
+308
 burned-patches
 burned-patches
 17
@@ -893,6 +910,39 @@ Plots and Monitors
 10
 0.0
 1
+
+MONITOR
+1234
+373
+1312
+418
+Trees Burnt
+tree-count
+0
+1
+11
+
+MONITOR
+1335
+373
+1413
+418
+Grass
+grass-count
+0
+1
+11
+
+MONITOR
+1334
+432
+1412
+477
+Grass Burnt
+burnt-grass-count
+0
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

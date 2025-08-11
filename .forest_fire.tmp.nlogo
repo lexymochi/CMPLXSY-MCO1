@@ -226,7 +226,6 @@ to spread-fire
 
       ;; Adjust probability based on wind directions
 
-      ;; Assuming wind directions and speeds as sliders:
       ;; south-wind-speed and west-wind-speed are sliders (values 0-100)
 
       if direction = 0 [
@@ -327,7 +326,6 @@ to hunt-fire
       set my-target nobody
     ]
   ]
-  ;; rest of your move/turn/drop-water code unchanged
 end
 
 
@@ -482,7 +480,7 @@ to update-visuals
       set pcolor red
     ]
     if wet-timer > 0 and not is-burning? [
-      set pcolor blue ; light-blue
+      set pcolor blue
     ]
   ]
 
@@ -879,23 +877,69 @@ Environment Control
 @#$#@#$#@
 ## WHAT IS IT?
 
+This model simulates wildfire spread and firefighting using aircraft in a forested landscape. It represents patches of different vegetation types (trees, grass, lakes) with varying flammability and burning behavior. Firefighters, represented as aircraft, fly over zones to locate and douse fires with water drops.
 
 
 ## HOW IT WORKS
 
+The wildfire starts from one edge of the landscape and spreads probabilistically based on fuel type, wind speed, and direction. Patches can burn, become ash, or be wet and cooled after water drops from aircraft.
 
+Aircraft move around actively seeking burning patches within assigned zones or across the whole landscape, depending on user settings. They refill water from lakes and drop water to extinguish fires. The fire spread, patch states, and aircraft actions are updated each tick.
 
 ## HOW TO USE IT
 
+Set parameters for vegetation densities, number of planes, wind speed/direction, and whether to use firefighting zones.
+
+Click Setup to initialize the landscape, fire, and aircraft.
+
+Click Go to start the simulation. Aircraft will seek and fight fires while the fire spreads.
+
+Observe patches changing colors indicating vegetation, burning, ash, or wetness.
+
+Monitor aircraft water loads and states (active/refilling).
+
+Use sliders or switches to adjust model parameters and re-run.
 
 ## THINGS TO NOTICE
 
+Fire spreads faster on highly flammable fuels (grass and trees) and is influenced by wind direction and speed.
+
+Aircraft focus firefighting efforts inside assigned zones or globally if zoning is off.
+
+Wet patches take time to dry, during which they resist catching fire.
+
+Cooldown timers prevent patches from immediately re-igniting after drying.
+
+Firefighters return to lakes to refill water when their water load is low.
 
 ## THINGS TO TRY
 
+Change lake density to see how water availability affects firefighting.
+
+Toggle use zones on/off to compare targeted versus global fire suppression strategies.
+
+Increase the number of planes and observe how fire control improves.
+
+Adjust wind speed and direction sliders to see how wind influences fire spread.
+
+Experiment with different starting edges for fire ignition.
+
+Try varying vegetation densities to test fire behavior in different landscapes.
+
 ## EXTENDING THE MODEL
 
+Add more detailed wind modeling including variable wind speed and gusts.
+
+Include different types of firefighting aircraft with varying water capacities and speeds.
+
+Implement more realistic fire spread algorithms (e.g., ember spotting, humidity effects).
+
+Add human interventions such as fire breaks or controlled burns.
+
+Incorporate terrain features affecting fire and aircraft movement.
+
 ## NETLOGO FEATURES
+
 
 ## RELATED MODELS
 
